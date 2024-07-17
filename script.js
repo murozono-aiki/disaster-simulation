@@ -1,8 +1,8 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js"
 
-const width = 960;
-const height = 540;
+const width = 1280;
+const height = 720;
 
 // レンダラーを作成
 const renderer = new THREE.WebGLRenderer({
@@ -62,3 +62,9 @@ async function init() {
     // ･･･省略
 }
 init();
+
+
+function finishRecord() {
+    const event = new Event("finishRender");
+    document.getElementById("canvas").dispatchEvent(event);
+}
