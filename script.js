@@ -32,11 +32,20 @@ light.position.set(1, 1, 1); // ライトの方向
 // シーンに追加
 scene.add(light);
 
+
+let rot = 0; // 角度
+let mouseX = 0; // マウス座標
+
+// マウス座標はマウスが動いた時のみ取得できる
+document.addEventListener("mousemove", (event) => {
+  mouseX = event.pageX;
+});
+
+
 // 初回実行
 tick();
 
 function tick() {
-    requestAnimationFrame(tick);
 
     // 箱を回転させる
     box.rotation.x += 0.01;
@@ -44,6 +53,27 @@ function tick() {
 
     // レンダリング
     renderer.render(scene, camera);
+
+
+    // マウスの位置に応じて角度を設定
+    // マウスのX座標がステージの幅の何%の位置にあるか調べてそれを360度で乗算する
+    const targetRot = (mouseX / window.innerWidth) * 360;
+    // イージングの公式を用いて滑らかにする
+    // 値 += (目標値 - 現在の値) * 減速値
+    rot += (targetRot - rot) * 0.02;
+
+    // ラジアンに変換する
+    const radian = rot * Math.PI / 180;
+    // 角度に応じてカメラの位置を設定
+    camera.position.x = 1000 * Math.sin(radian);
+    camera.position.z = 1000 * Math.cos(radian);
+    // 原点方向を見つめる
+    camera.lookAt(new THREE.Vector3(0, 0, 0));
+
+    // レンダリング
+    renderer.render(scene, camera);
+
+    requestAnimationFrame(tick);
 }
 
 // 非同期処理で待機するのでasync function宣言とする
