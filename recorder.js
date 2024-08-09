@@ -5,12 +5,10 @@ const stetusElement = document.getElementById("movieStetus");
 
 const mediaRecorder = new MediaRecorder(canvasStream);
 
-mediaRecorder.start();
-stetusElement.textContent = "：録画中";
-setTimeout(() => {
-    mediaRecorder.stop();
-    stetusElement.textContent = "：録画終了";
-}, 10000);
+canvas.addEventListener("startRender", () => {
+    mediaRecorder.start();
+    stetusElement.textContent = "：録画中";
+});
 canvas.addEventListener("finishRender", () => {
     mediaRecorder.stop();
     stetusElement.textContent = "：録画終了";
