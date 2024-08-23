@@ -80,46 +80,11 @@ function onMousemove_camera(event) {
     mouseY = currentMouseY;
 }
 
-function onMousedown_camera(event) {}
-
 // マウス座標はマウスが動いた時のみ取得できる
 document.addEventListener("mousemove", onMousemove_camera);
 
-
-// 初回実行
-tick();
-
-function tick() {
-
-    // 箱を回転させる
-    //box.rotation.x += 0.01;
-    //box.rotation.y += 0.01;
-
-    // マウスの位置に応じて角度を設定
-    // マウスのX座標がステージの幅の何%の位置にあるか調べてそれを360度で乗算する
-    //const targetRot = (mouseX / window.innerWidth) * 360;
-    // イージングの公式を用いて滑らかにする
-    // 値 += (目標値 - 現在の値) * 減速値
-    //rot += (targetRot - rot) * 0.02;
-
-    // ラジアンに変換する
-    //const radian = rot * Math.PI / 180;
-    // 角度に応じてカメラの位置を設定
-    //camera.position.x = 1000 * Math.sin(radian);
-    //camera.position.z = 1000 * Math.cos(radian);
-    // 原点方向を見つめる
-    //camera.lookAt(new THREE.Vector3(0, 0, 0));
-
-    // レンダリング
-    renderer.render(scene, camera);
-
-    requestAnimationFrame(tick);
-}
-
 // 非同期処理で待機するのでasync function宣言とする
 async function init() {
-    // ･･･省略
-  
     // GLTF形式のモデルデータを読み込む
     const loader = new GLTFLoader();
     // GLTFファイルのパスを指定
@@ -128,8 +93,6 @@ async function init() {
     const model = gltf.scene;
     model.position.set(0, -10, 0);
     scene.add(model);
-    
-    // ･･･省略
 }
 init();
 
@@ -142,3 +105,66 @@ function finishRecord() {
     const event = new Event("finishRender");
     document.getElementById("canvas").dispatchEvent(event);
 }
+
+
+/* シミュレーション部分 */
+
+const h = 0.012; //影響半径
+const particleMass = 0.0002; //粒子の質量
+
+const densityCoef = particleMass * 315 / (64 * Math.PI * Math.pow(h,9)); //密度計算で使うヤツ
+const pressureCoef = particleMass * 45 / (Math.PI * Math.pow(h,6)); //圧力計算で使うヤツ
+
+const pressureStiffness = 200; //圧力係数
+const restDensity = 1000; //静止密度
+ 
+/**
+ * 粒子の密度計算
+ * @param {{position:THREE.Vector3, velocity:THREE.Vector3, force:THREE.Vector3, density:number, pressure:number}[]} particles - 粒子のリスト
+ */
+function CalcDensity(particles) {
+    const h2 = h*h; //事前にhの二乗を計算しておく
+    for (let i = 0; i < particles.length; i++) { //一つづつ粒子の密度を計算
+        let nowParticle = particles[i]; //今回計算する粒子
+        let sum = 0; //足し合わせる変数
+        for (let j = 0; j < particles.length; j++) { //他の粒子全てについて
+            if(i == j){continue;} //自分自身だったらスキップ
+            let nearParticle = particles[j];
+            
+            let diff = nearParticle.position.clone().sub(nowParticle.position.clone()); //粒子距離
+            const r2 = diff.clone().dot(diff.clone()); //粒子距離の２乗
+ 
+            //粒子距離がhより小さい場合だけ計算する
+            if ( r2 < h2 ) {
+                const c = h2 - r2;
+                sum += Math.pow(c,3); //(h2-r2)の３乗
+            }
+        }
+ 
+        nowParticle.density = sum * densityCoef; //密度が求まった
+    }
+}
+
+/**
+ * 粒子の圧力計算
+ * @param {{position:THREE.Vector3, velocity:THREE.Vector3, force:THREE.Vector3, density:number, pressure:number}[]} particles - 粒子のリスト
+ */
+function CalcPressure(particles) {
+    for(let i = 0; i < particles.length; i++) { //一つづつ粒子の圧力を計算
+        particles[i].pressure = pressureStiffness * ( particles[i].density - restDensity );
+    }
+}
+
+
+function tick() {
+
+    
+
+    // レンダリング
+    renderer.render(scene, camera);
+
+    requestAnimationFrame(tick);
+}
+
+// 初回実行
+tick();
