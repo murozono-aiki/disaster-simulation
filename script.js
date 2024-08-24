@@ -109,20 +109,30 @@ function finishRecord() {
 
 /* シミュレーション部分 */
 
+/**
+ * 加速度を計算するときに使う項
+ * @type {{pressureTerm:THREE.Vector3, viscosityTerm:THREE.Vector3}[]}
+ */
+const terms = [];
+
 const h = 0.012; //影響半径
 const particleMass = 0.0002; //粒子の質量
 
-const densityCoef = particleMass * 315 / (64 * Math.PI * Math.pow(h,9)); //密度計算で使うヤツ
-const pressureCoef = particleMass * 45 / (Math.PI * Math.pow(h,6)); //圧力計算で使うヤツ
-
+const g = new THREE.Vector3(0, -9.8, 0);  // 重力加速度
 const pressureStiffness = 200; //圧力係数
 const restDensity = 1000; //静止密度
+const viscosity = 1;  // 粘性係数
+
+const densityCoef = particleMass * 315 / (64 * Math.PI * Math.pow(h,9)); //密度計算で使うヤツ
+
+const pressureCoef = particleMass * 45 / (Math.PI * Math.pow(h,6)); //圧力項計算で使うヤツ
+const viscosityCoef = viscosity * particleMass * 45 / (Math.PI * Math.pow(h,6)); //粘性項計算で使うヤツ
  
 /**
  * 粒子の密度計算
  * @param {{position:THREE.Vector3, velocity:THREE.Vector3, force:THREE.Vector3, density:number, pressure:number}[]} particles - 粒子のリスト
  */
-function CalcDensity(particles) {
+function calcDensity(particles) {
     const h2 = h*h; //事前にhの二乗を計算しておく
     for (let i = 0; i < particles.length; i++) { //一つづつ粒子の密度を計算
         let nowParticle = particles[i]; //今回計算する粒子
@@ -149,20 +159,104 @@ function CalcDensity(particles) {
  * 粒子の圧力計算
  * @param {{position:THREE.Vector3, velocity:THREE.Vector3, force:THREE.Vector3, density:number, pressure:number}[]} particles - 粒子のリスト
  */
-function CalcPressure(particles) {
+function calcPressure(particles) {
     for(let i = 0; i < particles.length; i++) { //一つづつ粒子の圧力を計算
         particles[i].pressure = pressureStiffness * ( particles[i].density - restDensity );
     }
 }
 
+/**
+ * 粒子の圧力項計算
+ * @param {{position:THREE.Vector3, velocity:THREE.Vector3, force:THREE.Vector3, density:number, pressure:number}[]} particles - 粒子のリスト
+ */
+function calcPressureTerm(particles) {
+    const h2 = h*h; //事前にhの二乗を計算しておく
+    for (let i = 0; i < particles.length; i++) { //一つづつ粒子の密度を計算
+        let nowParticle = particles[i]; //今回計算する粒子
+        let sum = new THREE.Vector3(0, 0, 0); //足し合わせる変数
+        for (let j = 0; j < particles.length; j++) { //他の粒子全てについて
+            if(i == j){continue;} //自分自身だったらスキップ
+            let nearParticle = particles[j];
+            
+            let diff = nearParticle.position.clone().sub(nowParticle.position.clone()); //粒子距離
+            const r2 = diff.clone().dot(diff.clone()); //粒子距離の２乗
+ 
+            //粒子距離がhより小さい場合だけ計算する
+            if ( r2 < h2 ) {
+                const r = Math.sqrt(r2); //粒子距離
+                const c = h - r;
+                const n = ((nearParticle.pressure /*-*/+ nowParticle.pressure) / (2 * nearParticle.density)) * Math.pow(c,2) / r;
+                sum = sum.add(diff.multiplyScalar(n));
+            }
+        }
+ 
+        terms[j].pressureTerm = sum.multiplyScalar((-1/*/nowParticle.pressure*/) * pressureCoef);  // 圧力項が求まった
+    }
+}
 
-function tick() {
+/**
+ * 粒子の粘性項計算
+ * @param {{position:THREE.Vector3, velocity:THREE.Vector3, force:THREE.Vector3, density:number, pressure:number}[]} particles - 粒子のリスト
+ */
+function calcViscosityTerm(particles) {
+    const h2 = h*h; //事前にhの二乗を計算しておく
+    for (let i = 0; i < particles.length; i++) { //一つづつ粒子の密度を計算
+        let nowParticle = particles[i]; //今回計算する粒子
+        let sum = 0; //足し合わせる変数
+        for (let j = 0; j < particles.length; j++) { //他の粒子全てについて
+            if(i == j){continue;} //自分自身だったらスキップ
+            let nearParticle = particles[j];
+            
+            let diff = nearParticle.position.clone().sub(nowParticle.position.clone()); //粒子距離
+            const r2 = diff.clone().dot(diff.clone()); //粒子距離の２乗
+ 
+            //粒子距離がhより小さい場合だけ計算する
+            if ( r2 < h2 ) {
+                const r = Math.sqrt(r2); //粒子距離
+                const c = h - r;
+                const n = c / nearParticle.density;
+                sum = sum.add(nearParticle.velocity.clone().sub(nowParticle.velocity.clone()).multiplyScalar(n));
+            }
+        }
+ 
+        terms[j].viscosityTerm = sum.multiplyScalar(viscosityCoef);  // 粘性項が求まった
+    }
+}
 
+
+/**
+ * 粒子のリスト
+ * @type {{
+ *      position:THREE.Vector3,
+ *      velocity:THREE.Vector3,
+ *      force:THREE.Vector3,
+ *      density:number,
+ *      pressure:number,
+ *      is_wall:boolean
+ * }[]}
+ */
+const _particles = [];
+
+let previousTimeStamp;
+function tick(timestamp) {
+    calcDensity(_particles);
+    calcPressure(_particles);
+    calcPressureTerm(_particles);
+    calcViscosityTerm(_particles);
+
+    if (previousTimeStamp === undefined) previousTimeStamp = timestamp;
+    const deltaTime = timestamp - previousTimeStamp;
+    for (let i = 0; i < _particles.length; i++) {
+        const nowParticle = _particles[i];
+        const a = terms[i].pressureTerm.add(terms[i].viscosityTerm).add(g);
+        const v = nowParticle.velocity.clone().add(a.multiplyScalar(deltaTime));
+    }
     
 
     // レンダリング
     renderer.render(scene, camera);
 
+    previousTimeStamp = timestamp;
     requestAnimationFrame(tick);
 }
 
