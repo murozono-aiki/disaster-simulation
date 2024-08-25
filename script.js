@@ -19,13 +19,6 @@ scene.background = new THREE.Color(0xFFFFFF);
 const camera = new THREE.PerspectiveCamera(45, width / height, 1, 10000);
 camera.position.set(300, 100, 1000);
 
-// 球を作成
-const geometry = new THREE.SphereGeometry(1);
-const material = new THREE.MeshStandardMaterial({color: 0x0000FF});
-const sphere = new THREE.Mesh(geometry, material);
-sphere.position.y = 100;
-scene.add(sphere);
-
 // 平行光源
 const light = new THREE.DirectionalLight(0xFFFFFF);
 light.intensity = 2; // 光の強さを倍に
@@ -37,7 +30,6 @@ scene.add(ambientLight);
 scene.add(light);
 
 
-let rot = 0; // 角度
 let mouseX = 0; // マウス座標
 let mouseY = 0; // マウス座標
 
@@ -74,6 +66,8 @@ function onMousemove_camera(event) {
                 camera.rotateOnWorldAxis (new THREE.Vector3(0, 1, 0), (currentMouseX - mouseX) / 80);
             }
         }
+
+        renderer.render(scene, camera);
     }
 
     mouseX = currentMouseX;
@@ -94,7 +88,7 @@ async function init() {
     model.position.set(0, -10, 0);
     scene.add(model);
 }
-init();
+//init();
 
 
 function startRecord() {
@@ -105,6 +99,55 @@ function finishRecord() {
     const event = new Event("finishRender");
     document.getElementById("canvas").dispatchEvent(event);
 }
+
+
+
+function createParticleGeometry() {
+    const geometry = new THREE.SphereGeometry(1, 3, 2);
+    const material = new THREE.MeshStandardMaterial({color: 0x0000FF});
+    const sphere = new THREE.Mesh(geometry, material);
+    scene.add(sphere);
+    return sphere;
+}
+const particleGeometries = [];
+
+const simulateWorker = new Worker("simulator.js");
+let progressReported = false;
+simulateWorker.addEventListener("message", event => {
+    const object = event.data;
+    switch (object.type) {
+        case "result":
+            const particles = object.content;
+            for (let i = 0; i < Math.max(particles.length, particleGeometries.length); i += 1) {
+                if (particles[i] && !particles[i].is_wall) {
+                    if (!particleGeometries[i]) {
+                        particleGeometries[i] = createParticleGeometry();
+                    }
+                    particleGeometries[i].position.x = particles[i].position.x;
+                    particleGeometries[i].position.y = particles[i].position.y;
+                    particleGeometries[i].position.z = particles[i].position.z;
+                } else {
+                    if (particleGeometries[i]) {
+                        particleGeometries[i].dispose();
+                        particleGeometries[i] = undefined;
+                    }
+                }
+            }
+            renderer.render(scene, camera);
+            break;
+        case "progress":
+            if (!progressReported) {
+                progressReported = true;
+                requestAnimationFrame(() => {
+                    document.getElementById("progress").textContent = object.content;
+                });
+                setTimeout(() => {
+                    progressReported = false;
+                }, 5000);
+            }
+            break;
+    }
+});
 
 
 /* シミュレーション部分 */
@@ -308,7 +351,10 @@ function calcViscosityTerm(particles) {
  */
 const _particles = [];
 
-makeWall(_particles);
+async function start() {
+    makeWall(_particles);
+}
+//start();
 
 const defaultDeltaTime = 0.1;
 
@@ -340,4 +386,4 @@ async function tick(timestamp) {
 }
 
 // 初回実行
-tick(0);
+//tick(0);
