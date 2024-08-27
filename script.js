@@ -149,6 +149,14 @@ simulateWorker.addEventListener("message", event => {
     }
 });
 
+const geometry = new THREE.BoxGeometry( 10, 1, 10 ); 
+const material = new THREE.MeshBasicMaterial( {color: 0x00ff00} ); 
+const cube = new THREE.Mesh( geometry, material ); 
+cube.position.y = -1;
+cube.position.x = 5;
+cube.position.z = 5;
+scene.add( cube );
+
 
 /* シミュレーション部分 */
 

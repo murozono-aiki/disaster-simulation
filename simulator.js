@@ -4,13 +4,15 @@
  */
 const terms = [];
 
-const h = 0.012; //影響半径
+const h = 0.3/* 0.012 */; //影響半径
 const particleMass = 0.0002; //粒子の質量
 
 const g = createVector3(0, -9.8, 0);  // 重力加速度
 const pressureStiffness = 200; //圧力係数
 const restDensity = 1000; //静止密度
-const viscosity = 1;  // 粘性係数
+const viscosity = 0.000001;  // 粘性係数
+const attenuationCoefficient = 1;  // ダンパ係数
+const springConstant = 1;  // ばね係数
 
 const densityCoef = particleMass * 315 / (64 * Math.PI * Math.pow(h,9)); //密度計算で使うヤツ
 
@@ -19,7 +21,7 @@ const viscosityCoef = viscosity * particleMass * 45 / (Math.PI * Math.pow(h,6));
 
 //壁は立方体
 const wallWidth = 10; 
-const thickness = 0.5/* 0.1 */; //壁となる粒子の厚み（個数）
+const thickness = 3/* 0.5, 0.1 */; //壁となる粒子の厚み（個数）
 const interval = h / thickness;
 
 
@@ -183,6 +185,12 @@ function calcViscosityTerm(particles) {
     }
 }
 
+function calcColiderTerm(particles) {
+    for (let i = 0; i < particles.length; i++) {
+        terms[i].coliderTerm = multiplyScalarVector3(createVector3(0, 1, 0), springConstant * particles[i].position.y + attenuationCoefficient * dotVector3(particles[i].velocity, createVector3(0, 1, 0)));
+    }
+}
+
 
 /**
  * 粒子のリスト
@@ -199,7 +207,7 @@ function calcViscosityTerm(particles) {
 const _particles = [];
 
 
-const deltaTime = 0.1;  // （秒）
+const deltaTime = 0.01;  // （秒）
 
 let reportHeader = "";
 
@@ -212,11 +220,12 @@ function tick() {
     calcPressureTerm(_particles);
     console.info("calcViscosityTerm");
     calcViscosityTerm(_particles);
+    calcColiderTerm(_particles);
 
     for (let i = 0; i < _particles.length; i++) {
         const nowParticle = _particles[i];
         if (nowParticle.is_wall) continue;
-        const a = addVector3(addVector3(terms[i].pressureTerm, terms[i].viscosityTerm), g);
+        const a = addVector3(addVector3(addVector3(terms[i].pressureTerm, terms[i].viscosityTerm), terms[i].coliderTerm), g);
         const v = addVector3(nowParticle.velocity, multiplyScalarVector3(addVector3(nowParticle.acceleration, a), 0.5 * deltaTime));
         const deltaPosition = addVector3(multiplyScalarVector3(v, deltaTime), multiplyScalarVector3(a, 0.5 * deltaTime * deltaTime));
         nowParticle.acceleration = a;
@@ -231,7 +240,7 @@ function tick() {
  */
 function start(simulateSeconds) {
     // 初めに実行する処理
-    makeWall(_particles);
+    //makeWall(_particles);
     addParticles(_particles);
 
     self.postMessage({type:"result", content:_particles, time:0});
