@@ -11,8 +11,8 @@ const g = createVector3(0, -9.8, 0);  // 重力加速度
 const pressureStiffness = 200; //圧力係数
 const restDensity = 1000; //静止密度
 const viscosity = 0.000001;  // 粘性係数
-const attenuationCoefficient = 1;  // ダンパ係数
-const springConstant = 1;  // ばね係数
+const attenuationCoefficient = -5;  // ダンパ係数
+const springConstant = -5;  // ばね係数
 
 const densityCoef = particleMass * 315 / (64 * Math.PI * Math.pow(h,9)); //密度計算で使うヤツ
 
@@ -68,7 +68,7 @@ function makeWall(particles){
 }
 function addParticles(particles) {
     for (let i = 2; i < 5000; i += 2) {
-        particles.push(createParticle(createVector3(1, i, 1)));
+        particles.push(createParticle(createVector3(i/2, i, 1)));
     }
 }
 
@@ -187,7 +187,12 @@ function calcViscosityTerm(particles) {
 
 function calcColiderTerm(particles) {
     for (let i = 0; i < particles.length; i++) {
-        terms[i].coliderTerm = multiplyScalarVector3(createVector3(0, 1, 0), springConstant * particles[i].position.y + attenuationCoefficient * dotVector3(particles[i].velocity, createVector3(0, 1, 0)));
+        let distance = particles[i].position.y;
+        if (distance < -attenuationCoefficient) {
+            terms[i].coliderTerm = multiplyScalarVector3(createVector3(0, 1, 0), springConstant * distance + attenuationCoefficient * dotVector3(particles[i].velocity, createVector3(0, 1, 0)));
+        } else {
+            terms[i].coliderTerm = createVector3();
+        }
     }
 }
 
@@ -232,6 +237,7 @@ function tick() {
         nowParticle.velocity = v;
         nowParticle.position = addVector3(nowParticle.position, deltaPosition);
     }
+    console.log(_particles[0].position)
 }
 
 /**
@@ -337,7 +343,7 @@ function dotVector3(a, b) {
 
 
 /**
- * クライエントへ進捗を報告する関数
+ * クライアントへ進捗を報告する関数
  * @param {string} text - 報告内容
  */
 function reportProgress(text) {

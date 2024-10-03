@@ -88,7 +88,7 @@ async function init() {
     model.position.set(0, -10, 0);
     scene.add(model);
 }
-//init();
+init();
 
 
 function startRecord() {
