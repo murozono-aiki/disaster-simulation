@@ -79,6 +79,7 @@ document.addEventListener("mousemove", onMousemove_camera);
 
 let positionArray;
 let indexArray;
+let positions;
 let coloor = 0x000000;
 let index = 0;
 const geometories = [];
@@ -109,7 +110,12 @@ document.getElementById("prosess").addEventListener("click", event => {
     }
     index += 3;*/
     let x, y, z;
-    while(index < indexArray.length) {
+    x = positions.getX(index);
+    y = positions.getY(index);
+    z = positions.getZ(index);
+    console.log(index);
+    index++;
+    /*while(index < indexArray.length) {
         const positionIndex = indexArray[index] * 3;
         x = positionArray[positionIndex];
         y = positionArray[positionIndex+1];
@@ -117,7 +123,7 @@ document.getElementById("prosess").addEventListener("click", event => {
         index+=1;
         if (y > 1) break;
     }
-    console.log(index - 1);
+    console.log(index - 1);*/
     geometories[0].position.x = x;
     geometories[0].position.y = y;
     geometories[0].position.z = z;
@@ -138,14 +144,49 @@ async function init() {
     const gltf = await loader.loadAsync('data/Juso-data.glb');
     // 読み込み後に3D空間に追加
     const model = gltf.scene;
-    model.position.set(0, -10, 0);
+    model.position.set(0, 0, 0);
     scene.add(model);
     console.log(model);
 
-    positionArray = model.children[0].geometry.attributes.position.array;
-    indexArray = model.children[0].geometry.index.array;
+    const normalVectors = createNormalVectors(model.children[0].geometry);
+
+    // 法線を線で描画
+    const material = new THREE.LineBasicMaterial( { color: 0x0000ff } );
+    for (let i = 0; i < 20000/*normalVectors.length*/; i++) {
+        const points = [];
+        points.push(normalVectors[i].centerOfGravity.clone());
+        points.push(normalVectors[i].centerOfGravity.clone().add(normalVectors[i].normalVector.clone()));
+        const geometry = new THREE.BufferGeometry().setFromPoints( points );
+        const line = new THREE.Line( geometry, material );
+        scene.add( line );
+    }
+    renderer.render( scene, camera );
 }
 init();
+
+function createNormalVectors(geometry) {
+    const result = [];
+
+    const positionAttributes = geometry.attributes.position;
+    const indexArray = geometry.index.array;
+
+    for (let i = 0; i < indexArray.length; i += 3) {
+        const point1 = new THREE.Vector3(positionAttributes.getX(indexArray[i]), positionAttributes.getY(indexArray[i]), positionAttributes.getZ(indexArray[i]));
+        const point2 = new THREE.Vector3(positionAttributes.getX(indexArray[i + 1]), positionAttributes.getY(indexArray[i + 1]), positionAttributes.getZ(indexArray[i + 1]));
+        const point3 = new THREE.Vector3(positionAttributes.getX(indexArray[i + 2]), positionAttributes.getY(indexArray[i + 2]), positionAttributes.getZ(indexArray[i + 2]));
+
+        const centerOfGravity = point1.clone().add(point2.clone()).add(point3.clone()).divideScalar(3);
+
+        const normalVector = point2.clone().sub(point1.clone()).cross(point3.clone().sub(point1.clone())).normalize();
+
+        result.push({
+            triangle: [point1, point2, point3],
+            centerOfGravity: centerOfGravity,
+            normalVector: normalVector
+        });
+    }
+    return result;
+}
 
 
 function startRecord() {
