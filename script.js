@@ -149,16 +149,25 @@ async function init() {
     console.log(model);
 
     const normalVectors = createNormalVectors(model.children[0].geometry);
+    console.log(normalVectors);
+    const normalVectors_sortX = normalVectors.toSorted((a, b) => a.centerOfGravity.x - b.centerOfGravity.x);
+    const normalVectors_sortY = normalVectors.toSorted((a, b) => a.centerOfGravity.y - b.centerOfGravity.y);
+    const normalVectors_sortZ = normalVectors.toSorted((a, b) => a.centerOfGravity.z - b.centerOfGravity.z);
+    console.log(normalVectors_sortX);
+    console.log(normalVectors_sortY);
+    console.log(normalVectors_sortZ);
+    /*array[index] = array[index] && bool*/
 
     // 法線を線で描画
     const material = new THREE.LineBasicMaterial( { color: 0x0000ff } );
-    for (let i = 0; i < 20000/*normalVectors.length*/; i++) {
+    for (let i = 17304; i < 17310/*normalVectors.length*/; i++) {
         const points = [];
         points.push(normalVectors[i].centerOfGravity.clone());
         points.push(normalVectors[i].centerOfGravity.clone().add(normalVectors[i].normalVector.clone()));
         const geometry = new THREE.BufferGeometry().setFromPoints( points );
         const line = new THREE.Line( geometry, material );
         scene.add( line );
+        console.log(normalVectors[i].centerOfGravity);
     }
     renderer.render( scene, camera );
 }
@@ -180,6 +189,7 @@ function createNormalVectors(geometry) {
         const normalVector = point2.clone().sub(point1.clone()).cross(point3.clone().sub(point1.clone())).normalize();
 
         result.push({
+            index: i / 3,
             triangle: [point1, point2, point3],
             centerOfGravity: centerOfGravity,
             normalVector: normalVector
