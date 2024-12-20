@@ -260,7 +260,10 @@ function start(simulateSeconds) {
 
     reportProgress("シミュレーション終了");
 }
-start(100);
+self.addEventListener("message", event => {
+    let data = event.data;
+    start(100);
+});
 
 
 

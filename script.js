@@ -139,28 +139,34 @@ document.getElementById("prosess").addEventListener("click", event => {
 // 非同期処理で待機するのでasync function宣言とする
 async function init() {
     // GLTF形式のモデルデータを読み込む
-    const loader = new GLTFLoader();
+    const loader_building = new GLTFLoader();
     // GLTFファイルのパスを指定
-    const gltf = await loader.loadAsync('data/Juso-data.glb');
+    //const gltf = await loader.loadAsync('data/Juso-data.glb');
+    const gltf_building = await loader_building.loadAsync('data/bldg_Building.glb');
     // 読み込み後に3D空間に追加
-    const model = gltf.scene;
-    model.position.set(0, 0, 0);
-    scene.add(model);
-    console.log(model);
+    const building = gltf_building.scene;
+    building.position.set(0, 0, 0);
+    scene.add(building);
 
-    const normalVectors = createNormalVectors(model.children[0].geometry);
-    console.log(normalVectors);
+    // GLTF形式のモデルデータを読み込む
+    const loader_reliefFeature = new GLTFLoader();
+    // GLTFファイルのパスを指定
+    //const gltf = await loader.loadAsync('data/Juso-data.glb');
+    const gltf_reliefFeature = await loader_reliefFeature.loadAsync('data/dem_ReliefFeature.glb');
+    // 読み込み後に3D空間に追加
+    const reliefFeature = gltf_reliefFeature.scene;
+    reliefFeature.position.set(0, 0, 0);
+    scene.add(reliefFeature);
+
+    const normalVectors = createNormalVectors(reliefFeature.children[0].geometry);
     const normalVectors_sortX = normalVectors.toSorted((a, b) => a.centerOfGravity.x - b.centerOfGravity.x);
     const normalVectors_sortY = normalVectors.toSorted((a, b) => a.centerOfGravity.y - b.centerOfGravity.y);
     const normalVectors_sortZ = normalVectors.toSorted((a, b) => a.centerOfGravity.z - b.centerOfGravity.z);
-    console.log(normalVectors_sortX);
-    console.log(normalVectors_sortY);
-    console.log(normalVectors_sortZ);
     /*array[index] = array[index] && bool*/
 
     // 法線を線で描画
-    const material = new THREE.LineBasicMaterial( { color: 0x0000ff } );
-    for (let i = 17304; i < 17310/*normalVectors.length*/; i++) {
+    /*const material = new THREE.LineBasicMaterial( { color: 0x0000ff } );
+    for (let i = 17304; i < 17310/*normalVectors.length*//*; i++) {
         const points = [];
         points.push(normalVectors[i].centerOfGravity.clone());
         points.push(normalVectors[i].centerOfGravity.clone().add(normalVectors[i].normalVector.clone()));
@@ -168,7 +174,7 @@ async function init() {
         const line = new THREE.Line( geometry, material );
         scene.add( line );
         console.log(normalVectors[i].centerOfGravity);
-    }
+    }*/
     renderer.render( scene, camera );
 }
 init();
@@ -219,43 +225,46 @@ function createParticleGeometry() {
 }
 const particleGeometries = [];
 
-/*const simulateWorker = new Worker("simulator.js");
-let progressReported = false;
-simulateWorker.addEventListener("message", event => {
-    const object = event.data;
-    switch (object.type) {
-        case "result":
-            const particles = object.content;
-            for (let i = 0; i < Math.max(particles.length, particleGeometries.length); i += 1) {
-                if (particles[i] && !particles[i].is_wall) {
-                    if (!particleGeometries[i]) {
-                        particleGeometries[i] = createParticleGeometry();
-                    }
-                    particleGeometries[i].position.x = particles[i].position.x;
-                    particleGeometries[i].position.y = particles[i].position.y;
-                    particleGeometries[i].position.z = particles[i].position.z;
-                } else {
-                    if (particleGeometries[i]) {
-                        particleGeometries[i].dispose();
-                        particleGeometries[i] = undefined;
+function simulateStart(data) {
+    const simulateWorker = new Worker("simulator.js");
+    simulateWorker.postMessage(data);
+    let progressReported = false;
+    simulateWorker.addEventListener("message", event => {
+        const object = event.data;
+        switch (object.type) {
+            case "result":
+                const particles = object.content;
+                for (let i = 0; i < Math.max(particles.length, particleGeometries.length); i += 1) {
+                    if (particles[i] && !particles[i].is_wall) {
+                        if (!particleGeometries[i]) {
+                            particleGeometries[i] = createParticleGeometry();
+                        }
+                        particleGeometries[i].position.x = particles[i].position.x;
+                        particleGeometries[i].position.y = particles[i].position.y;
+                        particleGeometries[i].position.z = particles[i].position.z;
+                    } else {
+                        if (particleGeometries[i]) {
+                            particleGeometries[i].dispose();
+                            particleGeometries[i] = undefined;
+                        }
                     }
                 }
-            }
-            renderer.render(scene, camera);
-            break;
-        case "progress":
-            if (!progressReported) {
-                progressReported = true;
-                requestAnimationFrame(() => {
-                    document.getElementById("progress").textContent = object.content;
-                });
-                setTimeout(() => {
-                    progressReported = false;
-                }, 5000);
-            }
-            break;
-    }
-});*/
+                renderer.render(scene, camera);
+                break;
+            case "progress":
+                if (!progressReported) {
+                    progressReported = true;
+                    requestAnimationFrame(() => {
+                        document.getElementById("progress").textContent = object.content;
+                    });
+                    setTimeout(() => {
+                        progressReported = false;
+                    }, 5000);
+                }
+                break;
+        }
+    });
+}
 
 const geometry = new THREE.BoxGeometry( 10, 1, 10 ); 
 const material = new THREE.MeshBasicMaterial( {color: 0x00ff00} ); 
