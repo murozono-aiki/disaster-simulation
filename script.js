@@ -77,64 +77,6 @@ function onMousemove_camera(event) {
 // マウス座標はマウスが動いた時のみ取得できる
 document.addEventListener("mousemove", onMousemove_camera);
 
-let positionArray;
-let indexArray;
-let positions;
-let coloor = 0x000000;
-let index = 0;
-const geometories = [];
-for (let i = 0; i < 3; i++) {
-    let readius = 1;
-    if (i == 1) readius = 20;
-    const sphereGeometry = new THREE.SphereGeometry( readius, 3, 4 );
-    const sphereMaterial = new THREE.MeshBasicMaterial( { color: coloor } );
-    const sphereMesh = new THREE.Mesh( sphereGeometry, sphereMaterial );
-    scene.add(sphereMesh);
-    geometories.push(sphereMesh);
-}
-document.getElementById("prosess").addEventListener("click", event => {
-    let geometryIndex = 0;
-    let count = 1;
-    /*for (; index < array.length; index += 3) {
-        console.log(index);
-        const x = array[index];
-        const y = array[index+1];
-        const z = array[index+2];
-        geometories[geometryIndex].position.x = x;
-        geometories[geometryIndex].position.y = y;
-        geometories[geometryIndex].position.z = z;
-        renderer.render(scene, camera);
-        if (count == 3) break;
-        geometryIndex++;
-        count++;
-    }
-    index += 3;*/
-    let x, y, z;
-    x = positions.getX(index);
-    y = positions.getY(index);
-    z = positions.getZ(index);
-    console.log(index);
-    index++;
-    /*while(index < indexArray.length) {
-        const positionIndex = indexArray[index] * 3;
-        x = positionArray[positionIndex];
-        y = positionArray[positionIndex+1];
-        z = positionArray[positionIndex+2];
-        index+=1;
-        if (y > 1) break;
-    }
-    console.log(index - 1);*/
-    geometories[0].position.x = x;
-    geometories[0].position.y = y;
-    geometories[0].position.z = z;
-    geometories[1].position.x = x;
-    geometories[1].position.y = 200;
-    geometories[1].position.z = z;
-    geometories[2].position.x = x;
-    geometories[2].position.y = y-10;
-    geometories[2].position.z = z;
-    renderer.render(scene, camera);
-});
 
 // 非同期処理で待機するのでasync function宣言とする
 async function init() {
@@ -158,24 +100,26 @@ async function init() {
     reliefFeature.position.set(0, 0, 0);
     scene.add(reliefFeature);
 
-    const normalVectors = createNormalVectors(reliefFeature.children[0].geometry);
+    const normalVectors_building = createNormalVectors(building.children[0].geometry);
+    const normalVectors_reliefFeature = createNormalVectors(reliefFeature.children[0].geometry);
+
+    const normalVectors = [].concat(normalVectors_building, normalVectors_reliefFeature);
     const normalVectors_sortX = normalVectors.toSorted((a, b) => a.centerOfGravity.x - b.centerOfGravity.x);
     const normalVectors_sortY = normalVectors.toSorted((a, b) => a.centerOfGravity.y - b.centerOfGravity.y);
     const normalVectors_sortZ = normalVectors.toSorted((a, b) => a.centerOfGravity.z - b.centerOfGravity.z);
-    /*array[index] = array[index] && bool*/
 
-    // 法線を線で描画
-    /*const material = new THREE.LineBasicMaterial( { color: 0x0000ff } );
-    for (let i = 17304; i < 17310/*normalVectors.length*//*; i++) {
-        const points = [];
-        points.push(normalVectors[i].centerOfGravity.clone());
-        points.push(normalVectors[i].centerOfGravity.clone().add(normalVectors[i].normalVector.clone()));
-        const geometry = new THREE.BufferGeometry().setFromPoints( points );
-        const line = new THREE.Line( geometry, material );
-        scene.add( line );
-        console.log(normalVectors[i].centerOfGravity);
-    }*/
     renderer.render( scene, camera );
+
+    simulateStart({
+        normalVectors: {
+            data: normalVectors,
+            sort: {
+                x: normalVectors_sortX,
+                y: normalVectors_sortY,
+                z: normalVectors_sortZ
+            }
+        }
+    });
 }
 init();
 
@@ -194,11 +138,30 @@ function createNormalVectors(geometry) {
 
         const normalVector = point2.clone().sub(point1.clone()).cross(point3.clone().sub(point1.clone())).normalize();
 
+        const insideJudge = [];
+        insideJudge.push({
+            point: point1,
+            normalVector: normalVector
+        });
+        insideJudge.push({
+            point: point1,
+            normalVector: normalVector.clone().cross(point2.clone().sub(point1.clone())).normalize()
+        });
+        insideJudge.push({
+            point: point2,
+            normalVector: normalVector.clone().cross(point3.clone().sub(point2.clone())).normalize()
+        });
+        insideJudge.push({
+            point: point3,
+            normalVector: normalVector.clone().cross(point1.clone().sub(point3.clone())).normalize()
+        });
+
         result.push({
             index: i / 3,
             triangle: [point1, point2, point3],
             centerOfGravity: centerOfGravity,
-            normalVector: normalVector
+            normalVector: normalVector,
+            insideJudge: insideJudge
         });
     }
     return result;
@@ -266,121 +229,7 @@ function simulateStart(data) {
     });
 }
 
-const geometry = new THREE.BoxGeometry( 10, 1, 10 ); 
-const material = new THREE.MeshBasicMaterial( {color: 0x00ff00} ); 
-const cube = new THREE.Mesh( geometry, material ); 
-cube.position.y = -1;
-cube.position.x = 5;
-cube.position.z = 5;
-//scene.add( cube );
-//console.log(cube);
-//console.log(cube.geometry.index);
-let i = 0;
-while(true){
-    const x = cube.geometry.index.getX(i);
-    if (x === undefined) break;
-    const y = cube.geometry.index.getY(i);
-    const z = cube.geometry.index.getZ(i);
-    const w = cube.geometry.index.getW(i);
-    //console.log(x, y, z, w);
-    i += 1;
-}
-/*const array = cube.geometry.attributes.position.array;
-let coloor = 0x000000;
-let index = 0;
-const geometories = [];
-for (let i = 0; i < 3; i++) {
-    const sphereGeometry = new THREE.SphereGeometry( 1, 3, 4 );
-    const sphereMaterial = new THREE.MeshBasicMaterial( { color: coloor } );
-    const sphereMesh = new THREE.Mesh( sphereGeometry, sphereMaterial );
-    scene.add(sphereMesh);
-    geometories.push(sphereMesh);
-}*/
-document.getElementById("prosess").addEventListener("click", event => {
-    return;
-    let geometryIndex = 0;
-    let count = 1;
-    /*for (; index < array.length; index += 3) {
-        console.log(index);
-        const x = array[index];
-        const y = array[index+1];
-        const z = array[index+2];
-        geometories[geometryIndex].position.x = x;
-        geometories[geometryIndex].position.y = y;
-        geometories[geometryIndex].position.z = z;
-        renderer.render(scene, camera);
-        if (count == 3) break;
-        geometryIndex++;
-        count++;
-    }
-    index += 3;*/
-    const x = array[index];
-    const y = array[index+1];
-    const z = array[index+2];
-    geometories[0].position.x = x;
-    geometories[0].position.y = y;
-    geometories[0].position.z = z;
-    renderer.render(scene, camera);
-    index+=3;
-});
-/*for (let i = 0; i < array.length; i += 3) {
-    const x = array[i]; const y = array[i+1]; const z = array[i+2];
-    const sphereGeometry = new THREE.SphereGeometry( 1, 3, 4 );
-    const sphereMaterial = new THREE.MeshBasicMaterial( { color: coloor } );
-    const sphereMesh = new THREE.Mesh( sphereGeometry, sphereMaterial );
-    sphereMesh.position.x = x;
-    sphereMesh.position.y = y;
-    sphereMesh.position.z = z;
-    scene.add(sphereMesh);
-    if (i % 9 == 0) coloor += 0x202020;
-}*/
 
-const geometry1 = new THREE.SphereGeometry( 15, 3, 2 ); 
-const material1 = new THREE.MeshBasicMaterial( { color: 0xffff00 } ); 
-const sphere = new THREE.Mesh( geometry1, material1 );
-//scene.add( sphere );
-//console.log(sphere);
-
-
-/*const array = sphere.geometry.attributes.position.array;
-let coloor = 0x000000;
-let index = 0;
-const geometories = [];
-for (let i = 0; i < 3; i++) {
-    const sphereGeometry = new THREE.SphereGeometry( 1, 3, 4 );
-    const sphereMaterial = new THREE.MeshBasicMaterial( { color: coloor } );
-    const sphereMesh = new THREE.Mesh( sphereGeometry, sphereMaterial );
-    scene.add(sphereMesh);
-    geometories.push(sphereMesh);
-}*/
-document.getElementById("prosess").addEventListener("click", event => {
-    return;
-    let geometryIndex = 0;
-    let count = 1;
-    /*for (; index < array.length; index += 3) {
-        console.log(index);
-        const x = array[index];
-        const y = array[index+1];
-        const z = array[index+2];
-        geometories[geometryIndex].position.x = x;
-        geometories[geometryIndex].position.y = y;
-        geometories[geometryIndex].position.z = z;
-        renderer.render(scene, camera);
-        if (count == 3) break;
-        geometryIndex++;
-        count++;
-    }
-    index += 3;*/
-    console.log(index);
-    const x = array[index];
-    const y = array[index+1];
-    const z = array[index+2];
-    geometories[0].position.x = x;
-    geometories[0].position.y = y;
-    geometories[0].position.z = z;
-    renderer.render(scene, camera);
-    index+=3;
-});
 
 
 /* シミュレーション部分 */

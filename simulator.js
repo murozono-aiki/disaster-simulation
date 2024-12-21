@@ -1,6 +1,22 @@
+/** @typedef {{x:number, y:number, z:number}} Vector3 */
+
+/**
+ * @typedef {Object} PointData - 頂点１つのデータ
+ * @property {number} index
+ * @property {Vector3[]} triangle
+ * @property {Vector3} centerOfGravity
+ * @property {Vector3} normalVector
+ * @property {{point:Vector3, normalVector:Vector3}[]} insideJudge
+ */
+/**
+ * オブジェクトの頂点データ（衝突判定で使用）
+ * @type {{normalVectors:{data:PointData[], sort:{x:PointData[], y:PointData[], z:PointData[]}}}}
+ */
+let data = {};
+
 /**
  * 加速度を計算するときに使う項
- * @type {{pressureTerm:{x:number, y:number, z:number}, viscosityTerm:{x:number, y:number, z:number}}[]}
+ * @type {{pressureTerm:Vector3, viscosityTerm:Vector3}[]}
  */
 const terms = [];
 
@@ -14,10 +30,10 @@ const viscosity = 0.000001;  // 粘性係数
 const attenuationCoefficient = -5;  // ダンパ係数
 const springConstant = -5;  // ばね係数
 
-const densityCoef = particleMass * 315 / (64 * Math.PI * Math.pow(h,9)); //密度計算で使うヤツ
+const densityCoef = particleMass * 315 / (64 * Math.PI * Math.pow(h,9)); //密度計算で使う
 
-const pressureCoef = particleMass * 45 / (Math.PI * Math.pow(h,6)); //圧力項計算で使うヤツ
-const viscosityCoef = viscosity * particleMass * 45 / (Math.PI * Math.pow(h,6)); //粘性項計算で使うヤツ
+const pressureCoef = particleMass * 45 / (Math.PI * Math.pow(h,6)); //圧力項計算で使う
+const viscosityCoef = viscosity * particleMass * 45 / (Math.PI * Math.pow(h,6)); //粘性項計算で使う
 
 //壁は立方体
 const wallWidth = 10; 
@@ -68,7 +84,7 @@ function makeWall(particles){
 }
 function addParticles(particles) {
     for (let i = 2; i < 5000; i += 2) {
-        particles.push(createParticle(createVector3(i/2, i, 1)));
+        particles.push(createParticle(createVector3(Math.random() + 0.5, i, 1)));
     }
 }
 
@@ -76,7 +92,7 @@ function addParticles(particles) {
 
 /**
  * 粒子の密度計算
- * @param {{position:{x:number, y:number, z:number}, velocity:{x:number, y:number, z:number}, force:{x:number, y:number, z:number}, density:number, pressure:number}[]} particles - 粒子のリスト
+ * @param {{position:Vector3, velocity:Vector3, force:Vector3, density:number, pressure:number}[]} particles - 粒子のリスト
  */
 function calcDensity(particles) {
     const h2 = h*h; //事前にhの二乗を計算しておく
@@ -106,7 +122,7 @@ function calcDensity(particles) {
 
 /**
  * 粒子の圧力計算
- * @param {{position:{x:number, y:number, z:number}, velocity:{x:number, y:number, z:number}, force:{x:number, y:number, z:number}, density:number, pressure:number}[]} particles - 粒子のリスト
+ * @param {{position:Vector3, velocity:Vector3, force:Vector3, density:number, pressure:number}[]} particles - 粒子のリスト
  */
 function calcPressure(particles) {
     for(let i = 0; i < particles.length; i++) { //一つづつ粒子の圧力を計算
@@ -119,7 +135,7 @@ function calcPressure(particles) {
 
 /**
  * 粒子の圧力項計算
- * @param {{position:{x:number, y:number, z:number}, velocity:{x:number, y:number, z:number}, force:{x:number, y:number, z:number}, density:number, pressure:number}[]} particles - 粒子のリスト
+ * @param {{position:Vector3, velocity:Vector3, force:Vector3, density:number, pressure:number}[]} particles - 粒子のリスト
  */
 function calcPressureTerm(particles) {
     const h2 = h*h; //事前にhの二乗を計算しておく
@@ -153,7 +169,7 @@ function calcPressureTerm(particles) {
 
 /**
  * 粒子の粘性項計算
- * @param {{position:{x:number, y:number, z:number}, velocity:{x:number, y:number, z:number}, force:{x:number, y:number, z:number}, density:number, pressure:number}[]} particles - 粒子のリスト
+ * @param {{position:Vector3, velocity:Vector3, force:Vector3, density:number, pressure:number}[]} particles - 粒子のリスト
  */
 function calcViscosityTerm(particles) {
     const h2 = h*h; //事前にhの二乗を計算しておく
@@ -185,11 +201,19 @@ function calcViscosityTerm(particles) {
     }
 }
 
+/**
+ * 粒子の衝突項計算
+ * @param {{position:Vector3, velocity:Vector3, force:Vector3, density:number, pressure:number}[]} particles - 粒子のリスト
+ */
 function calcColiderTerm(particles) {
     for (let i = 0; i < particles.length; i++) {
-        let distance = particles[i].position.y;
+
+        reportProgress(reportHeader + "衝突項を計算中..." + i + "/" + particles.length);
+
+        let nowParticle = particles[i]; //今回計算する粒子
+        let distance = nowParticle.position.y;
         if (distance < -attenuationCoefficient) {
-            terms[i].coliderTerm = multiplyScalarVector3(createVector3(0, 1, 0), springConstant * distance + attenuationCoefficient * dotVector3(particles[i].velocity, createVector3(0, 1, 0)));
+            terms[i].coliderTerm = multiplyScalarVector3(createVector3(0, 1, 0), springConstant * distance + attenuationCoefficient * dotVector3(nowParticle.velocity, createVector3(0, 1, 0)));
         } else {
             terms[i].coliderTerm = createVector3();
         }
@@ -200,10 +224,10 @@ function calcColiderTerm(particles) {
 /**
  * 粒子のリスト
  * @type {{
- *      position:{x:number, y:number, z:number},
- *      velocity:{x:number, y:number, z:number},
- *      force:{x:number, y:number, z:number},
- *      acceleration:{x:number, y:number, z:number},
+ *      position:Vector3,
+ *      velocity:Vector3,
+ *      force:Vector3,
+ *      acceleration:Vector3,
  *      density:number,
  *      pressure:number,
  *      is_wall:boolean
@@ -217,13 +241,13 @@ const deltaTime = 0.01;  // （秒）
 let reportHeader = "";
 
 function tick() {
-    console.info("calcDensity");
+    //console.info("calcDensity");
     calcDensity(_particles);
-    console.info("calcPressure");
+    //console.info("calcPressure");
     calcPressure(_particles);
-    console.info("calcPressureTerm");
+    //console.info("calcPressureTerm");
     calcPressureTerm(_particles);
-    console.info("calcViscosityTerm");
+    //console.info("calcViscosityTerm");
     calcViscosityTerm(_particles);
     calcColiderTerm(_particles);
 
@@ -237,7 +261,7 @@ function tick() {
         nowParticle.velocity = v;
         nowParticle.position = addVector3(nowParticle.position, deltaPosition);
     }
-    console.log(_particles[0].position)
+    //console.log(_particles[0].position)
 }
 
 /**
@@ -261,7 +285,13 @@ function start(simulateSeconds) {
     reportProgress("シミュレーション終了");
 }
 self.addEventListener("message", event => {
-    let data = event.data;
+    data = event.data;
+    for (let i = 0; i < data.normalVectors.data.length; i++) {
+        data.normalVectors.data[i].insideJudge.push({
+            point: addVector3(data.normalVectors.data[i].insideJudge[0].point, createVector3(0, h, 0)),
+            normalVector: multiplyScalarVector3(data.normalVectors.data[i].normalVector, -1)
+        });
+    }
     start(100);
 });
 
@@ -271,14 +301,14 @@ self.addEventListener("message", event => {
 
 /**
  * 粒子のオブジェクトを作成する関数
- * @param {{x:number, y:number, z:number}} position - 粒子の位置
- * @param {{x:number, y:number, z:number}} velocity - 粒子の速度
- * @param {{x:number, y:number, z:number}} force - 粒子にかかっている力
- * @param {{x:number, y:number, z:number}} acceleration - 粒子の加速度
+ * @param {Vector3} position - 粒子の位置
+ * @param {Vector3} velocity - 粒子の速度
+ * @param {Vector3} force - 粒子にかかっている力
+ * @param {Vector3} acceleration - 粒子の加速度
  * @param {number} density - 粒子の密度
  * @param {number} pressure - 粒子の圧力
  * @param {boolean} is_wall - 粒子が壁かどうか
- * @returns {{position:{x:number, y:number, z:number}, velocity:{x:number, y:number, z:number}, force:{x:number, y:number, z:number}, acceleration:{x:number, y:number, z:number}, density:number, pressure:number, is_wall:boolean}} - 粒子のオブジェクト
+ * @returns {{position:Vector3, velocity:Vector3, force:Vector3, acceleration:Vector3, density:number, pressure:number, is_wall:boolean}} - 粒子のオブジェクト
  */
 function createParticle(position={x:0,y:0,z:0}, is_wall=false, velocity={x:0,y:0,z:0}, force={x:0,y:0,z:0}, acceleration={x:0,y:0,z:0}, density=0, pressure=0) {
     return {
@@ -305,9 +335,9 @@ function createVector3(x = 0, y = 0, z = 0) {
 
 /**
  * ベクトルについて a + b を計算する関数
- * @param {{x:number, y:number, z:number}} a - 足すベクトル
- * @param {{x:number, y:number, z:number}} b - 足されるベクトル
- * @returns {{x:number, y:number, z:number}} - ベクトルの和
+ * @param {Vector3} a - 足すベクトル
+ * @param {Vector3} b - 足されるベクトル
+ * @returns {Vector3} - ベクトルの和
  */
 function addVector3(a, b) {
     return createVector3(a.x + b.x, a.y + b.y, a.z + b.z);
@@ -315,9 +345,9 @@ function addVector3(a, b) {
 
 /**
  * ベクトルについて a - b を計算する関数
- * @param {{x:number, y:number, z:number}} a - 引かれるベクトル
- * @param {{x:number, y:number, z:number}} b - 引くベクトル
- * @returns {{x:number, y:number, z:number}} - ベクトルの差
+ * @param {Vector3} a - 引かれるベクトル
+ * @param {Vector3} b - 引くベクトル
+ * @returns {Vector3} - ベクトルの差
  */
 function subVector3(a, b) {
     return createVector3(a.x - b.x, a.y - b.y, a.z - b.z);
@@ -325,9 +355,9 @@ function subVector3(a, b) {
 
 /**
  * ベクトルについて aのn倍 を計算する関数
- * @param {{x:number, y:number, z:number}} a - ベクトル
+ * @param {Vector3} a - ベクトル
  * @param {number} n - 実数（スカラー）
- * @returns {{x:number, y:number, z:number}} - 実数倍したベクトル
+ * @returns {Vector3} - 実数倍したベクトル
  */
 function multiplyScalarVector3(a, n) {
     return createVector3(n * a.x, n * a.y, n * a.z);
@@ -335,8 +365,8 @@ function multiplyScalarVector3(a, n) {
 
 /**
  * ベクトルについて a ・ b （内積） を計算する関数
- * @param {{x:number, y:number, z:number}} a - ベクトル
- * @param {{x:number, y:number, z:number}} b - ベクトル
+ * @param {Vector3} a - ベクトル
+ * @param {Vector3} b - ベクトル
  * @returns {number} - ベクトルの内積
  */
 function dotVector3(a, b) {
