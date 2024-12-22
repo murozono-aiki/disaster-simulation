@@ -301,7 +301,8 @@ function calcColiderTerm(particles) {
             const nowPoint = data.normalVectors.data[j];
             if (is_inside(nowParticle.position, nowPoint)) {
                 let distance = Math.abs(nowPoint.normalVector.x * (nowParticle.position.x - nowPoint.centerOfGravity.x) + nowPoint.normalVector.y * (nowParticle.position.y - nowPoint.centerOfGravity.y) + nowPoint.normalVector.z * (nowParticle.position.z - nowPoint.centerOfGravity.z));
-                nowTerm = multiplyScalarVector3(nowPoint.normalVector, springConstant * distance + attenuationCoefficient * dotVector3(nowParticle.velocity, nowPoint.normalVector));
+                let nowTerm = multiplyScalarVector3(nowPoint.normalVector, springConstant * distance + attenuationCoefficient * dotVector3(nowParticle.velocity, nowPoint.normalVector));
+                term = addVector3(term, nowTerm);
             }
         }
         console.log(term);
@@ -368,7 +369,6 @@ function start(simulateSeconds) {
 
     for (let i = 0; i < simulateSeconds / deltaTime; i++) {
         const time = (i + 1) * deltaTime;
-        let timeString = time.toString().slice(0, deltaTime.toString.length);
         reportHeader = time + "秒目/" + simulateSeconds + "秒 ";
         tick();
         self.postMessage({type:"result", content:_particles, time:time});
@@ -379,10 +379,14 @@ function start(simulateSeconds) {
 self.addEventListener("message", event => {
     data = event.data;
     for (let i = 0; i < data.normalVectors.data.length; i++) {
-        /*data.normalVectors.data[i].insideJudge.push({
+        data.normalVectors.data[i].insideJudge.push({
             point: addVector3(data.normalVectors.data[i].triangle[0], multiplyScalarVector3(data.normalVectors.data[i].normalVector, -attenuationCoefficient)),
             normalVector: multiplyScalarVector3(data.normalVectors.data[i].normalVector, -1)
-        });*/
+        });
+        data.normalVectors.data[i].insideJudge.push({
+            point: subVector3(data.normalVectors.data[i].triangle[0], multiplyScalarVector3(data.normalVectors.data[i].normalVector, -attenuationCoefficient)),
+            normalVector: data.normalVectors.data[i].normalVector
+        });
     }
     start(100);
 });

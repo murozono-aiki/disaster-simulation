@@ -141,10 +141,6 @@ function createNormalVectors(geometry) {
         const insideJudge = [];
         insideJudge.push({
             point: point1,
-            normalVector: normalVector
-        });
-        insideJudge.push({
-            point: point1,
             normalVector: normalVector.clone().cross(point2.clone().sub(point1.clone())).normalize()
         });
         insideJudge.push({
