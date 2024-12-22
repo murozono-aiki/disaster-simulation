@@ -202,6 +202,85 @@ function calcViscosityTerm(particles) {
 }
 
 /**
+ * 範囲に合う面を抽出
+ * @param {boolean[]} resultArray - 結果を出力する配列
+ * @param {PointData[]} sortedPointArray - ソートされた面の配列
+ * @param {number} min - 抽出する範囲の最小値
+ * @param {number} max - 抽出する範囲の最大値
+ * @param {"x" | "y" | "z"} axis - 抽出する軸
+ */
+function filterPoint(resultArray, sortedPointArray, min, max, axis) {
+    let start = 0;
+    let end = sortedPointArray.length - 1;
+    let middle = start + Math.round((end - start) / 2);
+    let count = 0;
+    while (start > end && !(min <= sortedPointArray[middle].centerOfGravity[axis] && sortedPointArray[middle].centerOfGravity[axis] <= max)) {
+        if (sortedPointArray[middle].centerOfGravity[axis] < min) {
+            start = middle + 1;
+        }
+        if (max < sortedPointArray[middle].centerOfGravity[axis]) {
+            end = middle - 1;
+        }
+        middle = start + Math.round((end - start) / 2);
+        count++;
+        if (count >= 10000) break;
+    }
+
+    let start_min = start;
+    let end_min = middle;
+    start = Math.floor((end_min - start_min) / 2);
+    count = 0;
+    while (start > 0 && !(sortedPointArray[start].centerOfGravity[axis] >= min && sortedPointArray[start-1].centerOfGravity[axis] < min)) {
+        if (sortedPointArray[start].centerOfGravity[axis] < min) {
+            start_min = start + 1;
+        }
+        if (sortedPointArray[start].centerOfGravity[axis] > min) {
+            end_min = start - 1;
+        }
+        start = start_min + Math.floor((end_min - start_min) / 2);
+        count++;
+        if (count >= 10000) break;
+    }
+
+    let start_max = middle;
+    let end_max = end;
+    end = start_max + Math.ceil((end_max - start_max) / 2);
+    count = 0;
+    while (end < sortedPointArray.length - 1 && !(sortedPointArray[end].centerOfGravity[axis] <= max && sortedPointArray[end+1].centerOfGravity[axis] > max)) {
+        if (sortedPointArray[end].centerOfGravity[axis] < max) {
+            start_max = end + 1;
+        }
+        if (sortedPointArray[end].centerOfGravity[axis] > max) {
+            end_max = end - 1;
+        }
+        end = start_max + Math.ceil((end_max - start_max) / 2);
+        count++;
+        if (count >= 10000) break;
+    }
+
+    for (let i = 0; i < start; i++) {
+        resultArray[i] = undefined;
+    }
+    for (let i = start; i <= end; i++) {
+        resultArray[i] = resultArray[i] && true;
+    }
+    for (let i = end; i < sortedPointArray.length; i++) {
+        resultArray[i] = undefined;
+    }
+}
+/**
+ * 粒子の内在判定
+ * @param {Vector3} position - 粒子の位置
+ * @param {PointData} point - 判定する面
+ */
+function is_inside(position, point) {
+    for (let i = 0; i < point.insideJudge.length; i++) {
+        const dot = dotVector3(point.insideJudge[i].normalVector, subVector3(position, point.insideJudge[i].point));
+        if (dot < 0) return false;
+    }
+    return true;
+}
+/**
  * 粒子の衝突項計算
  * @param {{position:Vector3, velocity:Vector3, force:Vector3, density:number, pressure:number}[]} particles - 粒子のリスト
  */
@@ -211,12 +290,29 @@ function calcColiderTerm(particles) {
         reportProgress(reportHeader + "衝突項を計算中..." + i + "/" + particles.length);
 
         let nowParticle = particles[i]; //今回計算する粒子
-        let distance = nowParticle.position.y;
+        let term = createVector3();
+
+        const filterArray = [];
+        filterPoint(filterArray, data.normalVectors.sort.x, nowParticle.position.x - (-attenuationCoefficient), nowParticle.position.x + (-attenuationCoefficient), "x");
+        filterPoint(filterArray, data.normalVectors.sort.y, nowParticle.position.y - (-attenuationCoefficient), nowParticle.position.y + (-attenuationCoefficient), "y");
+        filterPoint(filterArray, data.normalVectors.sort.z, nowParticle.position.z - (-attenuationCoefficient), nowParticle.position.z + (-attenuationCoefficient), "z");
+        for (let j = 0; j < data.normalVectors.data.length; j++) {
+            if (!filterArray[j]) continue;
+            const nowPoint = data.normalVectors.data[j];
+            if (is_inside(nowParticle.position, nowPoint)) {
+                let distance = Math.abs(nowPoint.normalVector.x * (nowParticle.position.x - nowPoint.centerOfGravity.x) + nowPoint.normalVector.y * (nowParticle.position.y - nowPoint.centerOfGravity.y) + nowPoint.normalVector.z * (nowParticle.position.z - nowPoint.centerOfGravity.z));
+                nowTerm = multiplyScalarVector3(nowPoint.normalVector, springConstant * distance + attenuationCoefficient * dotVector3(nowParticle.velocity, nowPoint.normalVector));
+            }
+        }
+        console.log(term);
+        terms[i].coliderTerm = term;
+
+        /*let distance = nowParticle.position.y;
         if (distance < -attenuationCoefficient) {
             terms[i].coliderTerm = multiplyScalarVector3(createVector3(0, 1, 0), springConstant * distance + attenuationCoefficient * dotVector3(nowParticle.velocity, createVector3(0, 1, 0)));
         } else {
             terms[i].coliderTerm = createVector3();
-        }
+        }*/
     }
 }
 
@@ -241,13 +337,9 @@ const deltaTime = 0.01;  // （秒）
 let reportHeader = "";
 
 function tick() {
-    //console.info("calcDensity");
     calcDensity(_particles);
-    //console.info("calcPressure");
     calcPressure(_particles);
-    //console.info("calcPressureTerm");
     calcPressureTerm(_particles);
-    //console.info("calcViscosityTerm");
     calcViscosityTerm(_particles);
     calcColiderTerm(_particles);
 
@@ -261,7 +353,6 @@ function tick() {
         nowParticle.velocity = v;
         nowParticle.position = addVector3(nowParticle.position, deltaPosition);
     }
-    //console.log(_particles[0].position)
 }
 
 /**
@@ -277,6 +368,7 @@ function start(simulateSeconds) {
 
     for (let i = 0; i < simulateSeconds / deltaTime; i++) {
         const time = (i + 1) * deltaTime;
+        let timeString = time.toString().slice(0, deltaTime.toString.length);
         reportHeader = time + "秒目/" + simulateSeconds + "秒 ";
         tick();
         self.postMessage({type:"result", content:_particles, time:time});
@@ -287,10 +379,10 @@ function start(simulateSeconds) {
 self.addEventListener("message", event => {
     data = event.data;
     for (let i = 0; i < data.normalVectors.data.length; i++) {
-        data.normalVectors.data[i].insideJudge.push({
-            point: addVector3(data.normalVectors.data[i].insideJudge[0].point, createVector3(0, h, 0)),
+        /*data.normalVectors.data[i].insideJudge.push({
+            point: addVector3(data.normalVectors.data[i].triangle[0], multiplyScalarVector3(data.normalVectors.data[i].normalVector, -attenuationCoefficient)),
             normalVector: multiplyScalarVector3(data.normalVectors.data[i].normalVector, -1)
-        });
+        });*/
     }
     start(100);
 });
@@ -327,7 +419,7 @@ function createParticle(position={x:0,y:0,z:0}, is_wall=false, velocity={x:0,y:0
  * @param {number} x - x成分
  * @param {number} y - y成分
  * @param {number} z - z成分
- * @returns - ベクトルを表すオブジェクト
+ * @returns {Vector3} - ベクトルを表すオブジェクト
  */
 function createVector3(x = 0, y = 0, z = 0) {
     return {x: x, y: y, z: z};
