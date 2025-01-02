@@ -80,11 +80,10 @@ function makeWall(particles){
             }
 
         }
-    //console.log(particles)
 }
 function addParticles(particles) {
-    for (let i = 2; i < 5000; i += 2) {
-        particles.push(createParticle(createVector3(Math.random() + 0.5, i, 1)));
+    for (let i = 2; i < 2000; i += 2) {
+        particles.push(createParticle(createVector3(Math.random() + 0.5, i+37, 1), false, createVector3(0, -10, 0)));
     }
 }
 
@@ -259,13 +258,13 @@ function filterPoint(resultArray, sortedPointArray, min, max, axis) {
     }
 
     for (let i = 0; i < start; i++) {
-        resultArray[i] = undefined;
+        resultArray[sortedPointArray[i].index] = false;
     }
     for (let i = start; i <= end; i++) {
-        resultArray[i] = resultArray[i] && true;
+        if (resultArray[sortedPointArray[i].index] === undefined) resultArray[i] = true;
     }
     for (let i = end; i < sortedPointArray.length; i++) {
-        resultArray[i] = undefined;
+        resultArray[sortedPointArray[i].index] = false;
     }
 }
 /**
@@ -279,6 +278,8 @@ function is_inside(position, point) {
         if (dot < 0) return false;
     }
     return true;
+    const dot = dotVector3(point.normalVector, subVector3(position, point.centerOfGravity));
+    return dot <= 0;
 }
 /**
  * 粒子の衝突項計算
@@ -297,15 +298,14 @@ function calcColiderTerm(particles) {
         filterPoint(filterArray, data.normalVectors.sort.y, nowParticle.position.y - (-attenuationCoefficient), nowParticle.position.y + (-attenuationCoefficient), "y");
         filterPoint(filterArray, data.normalVectors.sort.z, nowParticle.position.z - (-attenuationCoefficient), nowParticle.position.z + (-attenuationCoefficient), "z");
         for (let j = 0; j < data.normalVectors.data.length; j++) {
-            if (!filterArray[j]) continue;
+            //if (!filterArray[j]) continue;
             const nowPoint = data.normalVectors.data[j];
             if (is_inside(nowParticle.position, nowPoint)) {
-                let distance = Math.abs(nowPoint.normalVector.x * (nowParticle.position.x - nowPoint.centerOfGravity.x) + nowPoint.normalVector.y * (nowParticle.position.y - nowPoint.centerOfGravity.y) + nowPoint.normalVector.z * (nowParticle.position.z - nowPoint.centerOfGravity.z));
+                let distance = dotVector3(subVector3(nowParticle.position, nowPoint.centerOfGravity), nowPoint.normalVector);
                 let nowTerm = multiplyScalarVector3(nowPoint.normalVector, springConstant * distance + attenuationCoefficient * dotVector3(nowParticle.velocity, nowPoint.normalVector));
                 term = addVector3(term, nowTerm);
             }
         }
-        console.log(term);
         terms[i].coliderTerm = term;
 
         /*let distance = nowParticle.position.y;

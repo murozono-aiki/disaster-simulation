@@ -108,6 +108,21 @@ async function init() {
     const normalVectors_sortY = normalVectors.toSorted((a, b) => a.centerOfGravity.y - b.centerOfGravity.y);
     const normalVectors_sortZ = normalVectors.toSorted((a, b) => a.centerOfGravity.z - b.centerOfGravity.z);
 
+    /*const material = new THREE.MeshStandardMaterial({color: 0x0000FF});
+    for (let i = 655000; i < 700000; i++) {
+        const normalVectorObj = normalVectors[i];
+        const vector = normalVectorObj.normalVector.multiplyScalar(5);
+        for (let j = 0; j < normalVectorObj.triangle.length; j++) {
+            const points = [];
+            points.push(normalVectorObj.triangle[j].clone());
+            points.push(normalVectorObj.triangle[j].clone().add(vector.clone()));
+
+            const geometry = new THREE.BufferGeometry().setFromPoints( points );
+            const line = new THREE.Line( geometry, material );
+            scene.add( line );
+        }
+    }*/
+
     renderer.render( scene, camera );
 
     simulateStart({
@@ -137,6 +152,9 @@ function createNormalVectors(geometry) {
         const centerOfGravity = point1.clone().add(point2.clone()).add(point3.clone()).divideScalar(3);
 
         const normalVector = point2.clone().sub(point1.clone()).cross(point3.clone().sub(point1.clone())).normalize();
+        if (normalVector.x == 0 && normalVector.y == 0 && normalVector.z == 0) {
+            continue;
+        }
 
         const insideJudge = [];
         insideJudge.push({
@@ -221,6 +239,11 @@ function simulateStart(data) {
                     }, 5000);
                 }
                 break;
+            case "sphere":
+                const particle = createParticleGeometry();
+                particle.position.x = object.point.x;
+                particle.position.y = object.point.y;
+                particle.position.z = object.point.z;
         }
     });
 }
