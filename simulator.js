@@ -1,7 +1,7 @@
 /** @typedef {{x:number, y:number, z:number}} Vector3 */
 
 /**
- * @typedef {Object} PointData - 頂点１つのデータ
+ * @typedef {Object} FaceData - 頂点１つのデータ
  * @property {number} index
  * @property {Vector3[]} triangle
  * @property {Vector3} centerOfGravity
@@ -10,7 +10,7 @@
  */
 /**
  * オブジェクトの頂点データ（衝突判定で使用）
- * @type {{normalVectors:{data:PointData[], sort:{x:PointData[], y:PointData[], z:PointData[]}}}}
+ * @type {{normalVectors:{data:FaceData[], sort:{x:FaceData[], y:FaceData[], z:FaceData[]}}}}
  */
 let data = {};
 
@@ -203,7 +203,7 @@ function calcViscosityTerm(particles) {
 /**
  * 範囲に合う面を抽出
  * @param {boolean[]} resultArray - 結果を出力する配列
- * @param {PointData[]} sortedPointArray - ソートされた面の配列
+ * @param {FaceData[]} sortedPointArray - ソートされた面の配列
  * @param {number} min - 抽出する範囲の最小値
  * @param {number} max - 抽出する範囲の最大値
  * @param {"x" | "y" | "z"} axis - 抽出する軸
@@ -270,7 +270,7 @@ function filterPoint(resultArray, sortedPointArray, min, max, axis) {
 /**
  * 粒子の内在判定
  * @param {Vector3} position - 粒子の位置
- * @param {PointData} point - 判定する面
+ * @param {FaceData} point - 判定する面
  */
 function is_inside(position, point) {
     for (let i = 0; i < point.insideJudge.length; i++) {
